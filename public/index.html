@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>意图识别 Demo</title>
+  <style>
+    :root {
+      font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+      color: #e8eaed;
+      background: #13151a;
+    }
+
+    body {
+      max-width: min(1240px, calc(100% - 2rem));
+      margin: 2rem auto;
+      padding: 0 1rem;
+      line-height: 1.5;
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    h2 {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #9aa0a6;
+      margin: 0 0 0.65rem;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.35rem;
+      font-size: 0.875rem;
+      color: #9aa0a6;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 0.65rem 0.75rem;
+      border-radius: 8px;
+      border: 1px solid #3c4043;
+      background: #1e2128;
+      color: inherit;
+      resize: vertical;
+      box-sizing: border-box;
+    }
+
+    button {
+      margin-top: 0.75rem;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      border: none;
+      background: #8ab4f8;
+      color: #13151a;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .panel {
+      margin-top: 1rem;
+      padding: 1rem 1.1rem;
+      border-radius: 10px;
+      border: 1px solid #3c4043;
+      background: #1e2128;
+      font-size: 0.875rem;
+    }
+
+    .panel.note {
+      border-color: #394457;
+      background: #191c24;
+      font-size: 0.8125rem;
+      color: #bdc1c6;
+    }
+
+    .big-result {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #aecbfa;
+      margin: 0.15rem 0 0.35rem;
+    }
+
+    .sub-code {
+      font-size: 0.8125rem;
+      color: #9aa0a6;
+      font-family: ui-monospace, monospace;
+    }
+
+    dl.timings {
+      margin: 0;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.35rem 1.25rem;
+      align-items: baseline;
+    }
+
+    dl.timings dt {
+      margin: 0;
+      color: #9aa0a6;
+      font-size: 0.8125rem;
+    }
+
+    dl.timings dd {
+      margin: 0;
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      color: #e8eaed;
+    }
+
+    pre.raw {
+      margin: 0.75rem 0 0;
+      padding: 0.75rem;
+      border-radius: 8px;
+      background: #13151a;
+      border: 1px solid #3c4043;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 0.75rem;
+      line-height: 1.45;
+      color: #bdc1c6;
+    }
+
+    details.search-params-json {
+      margin-top: 0.65rem;
+    }
+
+    details.search-params-json > summary {
+      cursor: pointer;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: #8ab4f8;
+      user-select: none;
+      list-style: none;
+    }
+
+    details.search-params-json > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    details {
+      margin-top: 0.75rem;
+    }
+
+    summary {
+      cursor: pointer;
+      font-size: 0.8125rem;
+      color: #8ab4f8;
+      user-select: none;
+    }
+
+    .err {
+      color: #f28b82;
+    }
+
+    .hint {
+      font-size: 0.8125rem;
+      color: #9aa0a6;
+      margin-top: 1rem;
+    }
+
+    .quick-wrap {
+      margin-top: 0.65rem;
+      padding: 0.65rem 0.75rem;
+      border-radius: 8px;
+      border: 1px solid #3c4043;
+      background: #191c22;
+    }
+
+    .compose-split {
+      display: grid;
+      gap: 1rem 1.35rem;
+      align-items: stretch;
+      margin-top: 0.5rem;
+    }
+
+    .compose-input-col {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .compose-input-col textarea {
+      min-height: min(360px, 52vh);
+    }
+
+    .compose-input-col>button#send {
+      align-self: flex-start;
+    }
+
+    .compose-examples-col {
+      min-width: 0;
+    }
+
+    .compose-examples-col .quick-wrap {
+      margin-top: 0;
+      height: 100%;
+      box-sizing: border-box;
+    }
+
+    @media (min-width: 900px) {
+      .compose-split {
+        grid-template-columns: minmax(300px, 1fr) minmax(360px, 1.05fr);
+      }
+
+      .compose-examples-col {
+        position: sticky;
+        top: 0.75rem;
+        align-self: start;
+        max-height: calc(100vh - 1.5rem);
+      }
+
+      .compose-examples-col .examples-scroll {
+        max-height: min(52vh, calc(100vh - 11rem));
+      }
+    }
+
+    @media (max-width: 899px) {
+      .compose-split {
+        grid-template-columns: 1fr;
+      }
+
+      .compose-examples-col .examples-scroll {
+        max-height: min(48vh, 420px);
+      }
+    }
+
+    .quick-row {
+      margin-bottom: 0.55rem;
+    }
+
+    .quick-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .quick-row-title {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #8ab4f8;
+      margin-bottom: 0.28rem;
+      letter-spacing: 0.02em;
+    }
+
+    .quick-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+
+    button.chip {
+      margin-top: 0;
+      padding: 0.32rem 0.65rem;
+      border-radius: 999px;
+      border: 1px solid #5f6368;
+      background: #2d3139;
+      color: #e8eaed;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    button.chip:hover {
+      border-color: #8ab4f8;
+      background: #3c4043;
+    }
+
+    .extract-warn {
+      color: #fdd663;
+      font-size: 0.8125rem;
+      margin: 0 0 0.75rem;
+      padding: 0.5rem 0.65rem;
+      border-radius: 8px;
+      background: rgba(253, 214, 99, 0.08);
+      border: 1px solid rgba(253, 214, 99, 0.35);
+    }
+
+    .search-q-block {
+      margin: 0.35rem 0 0.85rem;
+      padding: 0.65rem 0.75rem;
+      border-radius: 8px;
+      background: #13151a;
+      border: 1px solid #3c4043;
+      font-size: 0.9375rem;
+      line-height: 1.55;
+      color: #e8eaed;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .panel.fast-path {
+      border-color: #3d8f6e;
+      background: #151f1a;
+    }
+    .panel.standard-compare {
+      border-color: #6b4f9a;
+      background: #1a1524;
+    }
+
+    .input-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .input-actions .chip.ghost {
+      border-style: dashed;
+      opacity: 0.85;
+    }
+
+    details.examples-block {
+      margin-top: 0.85rem;
+      border-radius: 10px;
+      border: 1px solid #3c4043;
+      background: #16181e;
+      padding: 0 0.85rem 0.85rem;
+    }
+
+    .compose-examples-col details.examples-block {
+      margin-top: 0;
+      min-height: min(420px, 52vh);
+    }
+
+    details.examples-block>summary {
+      list-style: none;
+      padding: 0.65rem 0 0.5rem;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: #aecbfa;
+    }
+
+    details.examples-block>summary::-webkit-details-marker {
+      display: none;
+    }
+
+    details.examples-block>summary::after {
+      content: " ▾";
+      font-size: 0.75rem;
+      color: #9aa0a6;
+    }
+
+    details.examples-block[open]>summary::after {
+      content: " ▴";
+    }
+
+    .examples-scroll {
+      max-height: min(52vh, 520px);
+      overflow-y: auto;
+      padding-right: 0.35rem;
+      margin-top: 0.25rem;
+      scrollbar-color: #5f6368 #1e2128;
+      min-height: 180px;
+    }
+
+    .examples-hint {
+      font-size: 0.75rem;
+      color: #9aa0a6;
+      margin: 0 0 0.6rem;
+      line-height: 1.45;
+    }
+
+    @media (min-width: 720px) {
+      .quick-chips.dense {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.35rem;
+      }
+
+      .quick-chips.dense button.chip {
+        text-align: left;
+        justify-content: flex-start;
+        min-height: 2.25rem;
+        line-height: 1.35;
+        white-space: normal;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <h1>找货语义 · 固定找货 / 属性抽取（LangChain · 千问）</h1>
+  <p class="examples-hint" style="margin-top:-0.35rem">
+    <strong>已关闭意图分类</strong>，入口一律视为找货；主链路在词典/找货句式之后仅保留<strong>属性/搜索词抽取</strong>。<strong>宽屏：</strong>左输入、右抽检；<strong>窄屏：</strong>上下排。
+  </p>
+  <div class="compose-split">
+    <div class="compose-input-col">
+      <label for="msg">用户输入</label>
+      <textarea id="msg" placeholder="例如：找冰种飘花翡翠手镯 圈口56 无纹裂的（Ctrl/Cmd+Enter 发送）"></textarea>
+      <div class="input-actions">
+        <label class="sub-code" style="display:inline-flex;align-items:center;gap:0.35rem;margin:0;cursor:pointer;">
+          <input type="checkbox" id="enableThinking" />
+          Think 模式（仅属性提取，<code>enable_thinking</code>）
+        </label>
+        <button type="button" class="chip ghost" id="clearMsg" title="清空文本框">清空输入</button>
+      </div>
+      <button type="button" id="send">发送并识别</button>
+    </div>
+    <div class="compose-examples-col">
+      <div class="quick-wrap" id="quickInputs" aria-label="搜索词条评测">
+        <details class="examples-block" open>
+          <summary>搜索词条评测（业务侧抽检用例）</summary>
+          <p class="examples-hint">
+            覆盖：工艺 / 种水 / 形状 / 黑白话价格 / 颜色与主观描述 / 佩戴或摆放场景 / 重量 / 纹裂与证书 / 产地与否定 / 活口与多圈口 / 结拍等。长句 chip 在宽屏双列展示。
+          </p>
+          <div class="examples-scroll">
+            <div class="quick-row">
+              <div class="quick-row-title">规格 · 种水 · 纹裂 · 重量</div>
+              <div class="quick-chips dense">
+                <button type="button" class="chip" data-quick-text="找冰种飘花翡翠手镯 圈口56 无纹裂的">找冰种飘花翡翠手镯 圈口56 无纹裂的</button>
+                <button type="button" class="chip" data-quick-text="想要糯冰种翡翠观音  30克以上的 最好镶嵌的">想要糯冰种翡翠观音 30克以上…</button>
+                <button type="button" class="chip" data-quick-text="帮忙找绿色的翡翠蛋面 最好是18K金镶嵌的">帮忙找绿色翡翠蛋面 18K…</button>
+                <button type="button" class="chip" data-quick-text="找品质好一点的翡翠平安扣 买来收藏用的">找品质好一点的翡翠平安扣 买来收藏</button>
+                <button type="button" class="chip" data-quick-text="找50000左右的糯化种春彩带手镯">找50000左右的糯化种春彩带手镯</button>
+                <button type="button" class="chip" data-quick-text="选择翡翠珠链卡13左右，价格1万左右">翡翠珠链 卡13 · 价格1万左右</button>
+                <button type="button" class="chip" data-quick-text="想找卡15左右的和田玉或者翡翠的单颗珠子">卡15左右 和田玉或翡翠单珠</button>
+              </div>
+            </div>
+            <div class="quick-row">
+              <div class="quick-row-title">和田玉 · 产地 · 品类</div>
+              <div class="quick-chips dense">
+                <button type="button" class="chip" data-quick-text="想要一块新疆和田玉的无事牌">想要一块新疆和田玉的无事牌</button>
+                <button type="button" class="chip" data-quick-text="帮我搜一下和田玉黄口料的手串">帮我搜一下和田玉黄口料的手串</button>
+                <button type="button" class="chip" data-quick-text="中四以内 找一条和田玉籽料手串  （备注：中四：4000–6999）">中四以内
+                  和田玉籽料手串（备注中四）</button>
+                <button type="button" class="chip" data-quick-text="想要找和田玉手镯 不要青海料的">想要找和田玉手镯 不要青海料的</button>
+                <button type="button" class="chip" data-quick-text="新疆和田玉手串 要新疆的 不要俄料">新疆和田玉手串 不要俄料</button>
+                <button type="button" class="chip" data-quick-text="想找有雕刻的 最好是手工雕的手把件">雕刻/手工雕 手把件</button>
+              </div>
+            </div>
+            <div class="quick-row">
+              <div class="quick-row-title">黑话价位 · 胶感 · 主观色</div>
+              <div class="quick-chips dense">
+                <button type="button" class="chip" data-quick-text="找冰种翡翠 有胶感的 小五价 （备注：小五价：10000–39999）">小五价
+                  冰种胶感（备注）</button>
+                <button type="button" class="chip" data-quick-text="想要翡翠或和田玉的无事牌 预算大四  （备注：大四：7000–9999）">无事牌
+                  预算大四（备注）</button>
+                <button type="button" class="chip" data-quick-text="想找个绿绿的 透透的 像果冻一样的翡翠挂件">绿、透、果冻感 翡翠挂件</button>
+                <button type="button" class="chip" data-quick-text="找白色的玉 要看起来油油的 润润的">白玉 油润感</button>
+                <button type="button" class="chip" data-quick-text="我想找带绿色的翡翠 最好价位在两千以内">带绿翡翠 两千以内</button>
+              </div>
+            </div>
+            <div class="quick-row">
+              <div class="quick-row-title">场景 · 礼赠 · 形制开放</div>
+              <div class="quick-chips dense">
+                <button type="button" class="chip" data-quick-text="想要找可以放办公室茶台上的小摆件 最好是玉石类的">办公室茶台小摆件 玉石类</button>
+                <button type="button" class="chip" data-quick-text="送给女生的30岁礼物 适合日常上班戴的 钻石项链 简约">30岁礼 日常通勤
+                  钻石项链简约</button>
+                <button type="button" class="chip" data-quick-text="平安扣形状的 什么材质都行 寓意平安">平安扣形 材质不限</button>
+                <button type="button" class="chip" data-quick-text="想要找一款比较高大上的吊坠 最好是有证书的 不要太便宜的">高大上吊坠 要证书</button>
+                <button type="button" class="chip" data-quick-text="想要找一款活口戒指  品类不限制 最好是颜色鲜艳一点的">活口戒指 品类不限 鲜艳</button>
+                <button type="button" class="chip" data-quick-text="想找可以日常佩戴的戒指  圈口12 14的也可以  最好是蓝色调的">日常戒指 圈口12/14
+                  蓝色调</button>
+              </div>
+            </div>
+            <div class="quick-row">
+              <div class="quick-row-title">彩宝 · 证书硬性 · 结拍</div>
+              <div class="quick-chips dense">
+                <button type="button" class="chip" data-quick-text="帮我找一个紫色的大肚佛">紫色大肚佛</button>
+                <button type="button" class="chip" data-quick-text="想找天然鸽血红宝石 必须要有证书的 没证书的不要推">鸽血红 必须证书</button>
+                <button type="button" class="chip" data-quick-text="400块以上 结拍时间最近的 不要手镯">400+ 最近结拍 不要手镯</button>
+              </div>
+            </div>
+            <div class="quick-row">
+              <div class="quick-row-title">多轮演示 · 追加填入（换行拼接）</div>
+              <p class="examples-hint" style="margin-bottom:0.45rem">先点一条「首轮」，再点「追加」模拟第二轮补充条件（后端仍为单次请求，需自行将多行视作一条 query
+                或后续接会话合并）。</p>
+              <div class="quick-chips dense">
+                <button type="button" class="chip" data-quick-text="找冰种飘花翡翠手镯 圈口56">〔首轮〕冰种飘花手镯 圈口56</button>
+                <button type="button" class="chip" data-append="true" data-quick-text="不要有明显纹裂，预算可以加到两万">〔追加〕不要纹裂 ·
+                  预算两万</button>
+                <button type="button" class="chip" data-quick-text="帮我找和田玉手镯">〔首轮〕和田玉手镯</button>
+                <button type="button" class="chip" data-append="true" data-quick-text="不要青海料的，圈口最好在58左右">〔追加〕不要青海料
+                  圈口58</button>
+                <button type="button" class="chip" data-quick-text="想找翡翠蛋面">〔首轮〕翡翠蛋面</button>
+                <button type="button" class="chip" data-append="true" data-quick-text="要绿色明显一点的，镶嵌用18K金">〔追加〕要绿
+                  18K镶</button>
+              </div>
+            </div>
+          </div>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="outResult" hidden>
+    <h2>固定意图</h2>
+    <p class="big-result" id="intentHuman"></p>
+    <p class="sub-code" id="intentCode"></p>
+    <p class="sub-code" id="routingLine" hidden></p>
+  </div>
+
+  <div class="panel fast-path" id="outDictFast" hidden>
+    <h2>运营词典命中</h2>
+    <p class="sub-code">与本次返回的 <code>search_params</code> 一并使用：用 <code>tag_id</code> 过滤 + <code>es_text_query</code> 全文，并把 <code>price_min</code>/<code>price_max</code> 等结构化字段交给 ES。</p>
+    <dl class="timings">
+      <dt>标签 ID</dt>
+      <dd id="dictTagId">—</dd>
+      <dt>命中词条</dt>
+      <dd id="dictPattern">—</dd>
+      <dt>ES 文本查询</dt>
+      <dd id="dictEsQuery">—</dd>
+      <dt>字典匹配耗时</dt>
+      <dd id="dictLookupMs">—</dd>
+    </dl>
+  </div>
+
+  <div class="panel" id="outFindItem" hidden>
+    <h2>属性提取 · 搜索词（q）· 主链路</h2>
+    <p class="sub-code" id="primaryModelLine" style="margin-bottom:0.6rem" hidden>主链路模型：<code
+        id="primaryModelName"></code>（与接口字段 <code>primary_model</code> / 环境变量 <code>MODEL_NAME</code> 一致）</p>
+    <p class="extract-warn" id="extractWarn" hidden>本次属性提取失败已重试耗尽，以下为兜底数据（q 可能仅为原文截取）；请查看服务端日志。</p>
+    <p class="sub-code" style="margin-bottom:0.35rem">核心搜索描述 q（给向量检索）</p>
+    <div class="search-q-block" id="searchQ">—</div>
+    <h2 style="margin-top:0.85rem">属性提取耗时</h2>
+    <dl class="timings">
+      <dt>属性模型单次调用</dt>
+      <dd id="rowAttrLlmInvoke">—</dd>
+      <dt>属性提取阶段总计</dt>
+      <dd id="rowAttrWall">—</dd>
+    </dl>
+    <details class="search-params-json">
+      <summary>完整 search_params JSON</summary>
+      <pre class="raw" id="searchParamsJson"></pre>
+    </details>
+  </div>
+
+  <div class="panel standard-compare" id="outStandardLlm" hidden>
+    <h2>标准模型对照（全 LLM 基线）</h2>
+    <p class="sub-code" id="stdIntro">与词典短路无关：仅用标准档模型（<code>MODEL_STANDARD</code>，默认 <code>qwen-plus</code>）做<strong>同一句</strong>的属性抽取，意图恒为找货；用于和主链路 <code>MODEL_NAME</code>（默认 Turbo 系）抽取结果对照。</p>
+    <p class="sub-code"><strong id="stdModelLine">—</strong></p>
+    <p class="big-result" id="stdIntentHuman"></p>
+    <p class="sub-code" id="stdIntentCode"></p>
+    <p class="extract-warn" id="stdError" hidden></p>
+    <div id="stdFindBlock" hidden>
+      <p class="sub-code" style="margin-bottom:0.35rem">核心搜索描述 q（给向量检索）</p>
+      <div class="search-q-block" id="stdSearchQ">—</div>
+      <h2 style="margin-top:0.85rem">属性提取耗时</h2>
+      <dl class="timings">
+        <dt>属性模型单次调用</dt>
+        <dd id="stdAttrLlm">—</dd>
+        <dt>属性提取阶段总计</dt>
+        <dd id="stdAttrWall">—</dd>
+      </dl>
+    </div>
+    <details class="search-params-json" id="stdParamsJsonWrap" hidden>
+      <summary>完整 search_params JSON</summary>
+      <pre class="raw" id="stdRawJson"></pre>
+    </details>
+    <p class="sub-code" id="stdNoExtract" hidden>本次标准模型意图非找货，未调用属性抽取。</p>
+  </div>
+
+  <div class="panel" id="outTiming" hidden>
+    <h2>意图识别耗时</h2>
+    <dl class="timings">
+      <dt>字典匹配耗时</dt>
+      <dd id="rowDictLookup">—</dd>
+      <dt>意图模型单次调用</dt>
+      <dd id="rowLlmInvoke">—</dd>
+      <dt>意图识别阶段总计</dt>
+      <dd id="rowRecognition">—</dd>
+      <dt>服务端处理总计</dt>
+      <dd id="rowHandler">—</dd>
+      <dt>浏览器端到端</dt>
+      <dd id="rowClient">—</dd>
+    </dl>
+    <details>
+      <summary>查看完整 timings JSON</summary>
+      <pre class="raw" id="timingsRaw"></pre>
+    </details>
+  </div>
+
+  <div class="panel err" id="err" hidden></div>
+
+  <p class="hint">接口：<code>POST /intent</code> ·
+    <code>routing</code>：<code>dictionary_es_with_extract</code>（词典 + 属性抽取）、<code>verb_find_llm_attributes</code>、<code>classify_find_item_extract</code>（意图为找货后属性抽取）、<code>classify_non_find_item</code>（非找货仅分类）、<code>extract_only_find_item</code>（<code>INTENT_CLASSIFICATION_ENABLED=off</code> 时固定找货）。<code>compare_standard: true</code> 时标准档抽取与主链路并行（仅找货路径）。勾选 Think 或传 <code>enable_thinking: true</code> 时，请求体会带通义 <code>enable_thinking</code>（以模型/地域文档为准）。
+  </p>
+
+  <script>
+    const INTENT_LABEL = {
+      FIND_ITEM: "找货 / 商品搜索",
+      KNOWLEDGE_QA: "商品知识问答",
+      APP_QA: "App 功能与操作",
+      CHAT: "闲聊",
+    };
+
+    const msgEl = document.getElementById("msg");
+    const sendBtn = document.getElementById("send");
+    const outResult = document.getElementById("outResult");
+    const outTiming = document.getElementById("outTiming");
+    const err = document.getElementById("err");
+    const intentHuman = document.getElementById("intentHuman");
+    const intentCode = document.getElementById("intentCode");
+    const rowLlmInvoke = document.getElementById("rowLlmInvoke");
+    const rowRecognition = document.getElementById("rowRecognition");
+    const rowHandler = document.getElementById("rowHandler");
+    const rowClient = document.getElementById("rowClient");
+    const timingsRaw = document.getElementById("timingsRaw");
+    const quickInputs = document.getElementById("quickInputs");
+    const outFindItem = document.getElementById("outFindItem");
+    const extractWarn = document.getElementById("extractWarn");
+    const searchQ = document.getElementById("searchQ");
+    const searchParamsJson = document.getElementById("searchParamsJson");
+    const rowAttrLlmInvoke = document.getElementById("rowAttrLlmInvoke");
+    const rowAttrWall = document.getElementById("rowAttrWall");
+    const rowDictLookup = document.getElementById("rowDictLookup");
+    const routingLine = document.getElementById("routingLine");
+    const outDictFast = document.getElementById("outDictFast");
+    const dictTagId = document.getElementById("dictTagId");
+    const dictPattern = document.getElementById("dictPattern");
+    const dictEsQuery = document.getElementById("dictEsQuery");
+    const dictLookupMs = document.getElementById("dictLookupMs");
+    const outStandardLlm = document.getElementById("outStandardLlm");
+    const stdModelLine = document.getElementById("stdModelLine");
+    const stdIntentHuman = document.getElementById("stdIntentHuman");
+    const stdIntentCode = document.getElementById("stdIntentCode");
+    const stdError = document.getElementById("stdError");
+    const stdFindBlock = document.getElementById("stdFindBlock");
+    const stdSearchQ = document.getElementById("stdSearchQ");
+    const stdAttrLlm = document.getElementById("stdAttrLlm");
+    const stdAttrWall = document.getElementById("stdAttrWall");
+    const stdNoExtract = document.getElementById("stdNoExtract");
+    const stdParamsJsonWrap = document.getElementById("stdParamsJsonWrap");
+    const stdRawJson = document.getElementById("stdRawJson");
+    const primaryModelLine = document.getElementById("primaryModelLine");
+    const primaryModelName = document.getElementById("primaryModelName");
+    const enableThinkingEl = document.getElementById("enableThinking");
+
+    quickInputs.addEventListener("click", (e) => {
+      const chip = e.target.closest("[data-quick-text]");
+      if (!chip) return;
+      const text = chip.getAttribute("data-quick-text");
+      const append = chip.getAttribute("data-append") === "true";
+      if (text) {
+        const cur = msgEl.value.trim();
+        msgEl.value = append && cur ? `${cur}\n${text}` : text;
+        msgEl.focus();
+      }
+    });
+
+    document.getElementById("clearMsg").addEventListener("click", () => {
+      msgEl.value = "";
+      msgEl.focus();
+    });
+
+    function fmtMs(n) {
+      if (n == null || Number.isNaN(n)) return "—";
+      return `${n} ms`;
+    }
+
+    /** 与主链路 search_params 折叠区相同格式化（2 空格缩进） */
+    function formatSearchParamsJson(params) {
+      return JSON.stringify(params == null ? {} : params, null, 2);
+    }
+
+    async function run() {
+      err.hidden = true;
+      outResult.hidden = true;
+      outFindItem.hidden = true;
+      outDictFast.hidden = true;
+      outTiming.hidden = true;
+      outStandardLlm.hidden = true;
+      stdParamsJsonWrap.hidden = true;
+
+      const message = msgEl.value.trim();
+      if (!message) {
+        err.textContent = "请先输入内容";
+        err.hidden = false;
+        return;
+      }
+
+      sendBtn.disabled = true;
+      const t0 = performance.now();
+      try {
+        const enable_thinking = enableThinkingEl.checked === true;
+        const res = await fetch("/intent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message,
+            compare_standard: true,
+            ...(enable_thinking ? { enable_thinking: true } : {}),
+          }),
+        });
+        const client_roundtrip_ms = Math.round(performance.now() - t0);
+        const data = await res.json();
+
+        if (!res.ok) {
+          err.textContent =
+            (data.error || res.statusText) +
+            "\n\n" +
+            JSON.stringify(
+              {
+                intent_recognition_ms: data.intent_recognition_ms ?? null,
+                timings: data.timings ?? null,
+              },
+              null,
+              2,
+            );
+          err.hidden = false;
+          return;
+        }
+
+        const human = INTENT_LABEL[data.intent] || data.intent;
+        intentHuman.textContent = human;
+        intentCode.textContent = `枚举值：${data.intent}`;
+        routingLine.hidden = true;
+        routingLine.textContent = "";
+
+        if (
+          data.routing === "dictionary_es_with_extract" &&
+          data.dictionary
+        ) {
+          routingLine.hidden = false;
+          routingLine.textContent =
+            "路由：dictionary_es_with_extract · 词典命中 tag_id，已调用属性抽取 LLM（search_params）";
+          outDictFast.hidden = false;
+          dictTagId.textContent = String(data.dictionary.tag_id);
+          dictPattern.textContent = data.dictionary.matched_pattern;
+          dictEsQuery.textContent = data.dictionary.es_text_query;
+          dictLookupMs.textContent = fmtMs(
+            data.timings?.dictionary_lookup_ms ?? null,
+          );
+        } else {
+          outDictFast.hidden = true;
+        }
+
+        outResult.hidden = false;
+
+        if (
+          data.routing === "verb_find_llm_attributes" &&
+          data.intent_skip_reason === "verb_find_prefix"
+        ) {
+          routingLine.hidden = false;
+          routingLine.textContent =
+            "路由：verb_find_llm_attributes · 找货句式已跳过意图 LLM；词典未命中，已调用属性提取 LLM";
+        }
+
+        if (data.routing === "extract_only_find_item") {
+          routingLine.hidden = false;
+          routingLine.textContent =
+            "路由：extract_only_find_item · 已关闭意图分类（INTENT_CLASSIFICATION_ENABLED=off），固定找货";
+        }
+
+        if (data.routing === "classify_find_item_extract") {
+          routingLine.hidden = false;
+          routingLine.textContent =
+            "路由：classify_find_item_extract · 意图模型判为找货后已调用属性抽取 LLM";
+        }
+
+        if (data.routing === "classify_non_find_item") {
+          routingLine.hidden = false;
+          routingLine.textContent =
+            "路由：classify_non_find_item · 非找货意图，未调用属性抽取";
+        }
+
+        if (
+          data.intent === "FIND_ITEM" &&
+          data.search_params
+        ) {
+          outFindItem.hidden = false;
+          primaryModelLine.hidden = false;
+          primaryModelName.textContent = data.primary_model || "—";
+          const fb = !!data.timings?.extract?.fallback;
+          extractWarn.hidden = !fb;
+          searchQ.textContent = data.search_params.q || "—";
+          searchParamsJson.textContent = formatSearchParamsJson(
+            data.search_params,
+          );
+          rowAttrLlmInvoke.textContent = fmtMs(
+            data.attribute_llm_invoke_ms ?? null,
+          );
+          rowAttrWall.textContent = fmtMs(
+            data.attribute_extraction_ms ??
+            data.timings?.extract?.extract_wall_ms ??
+            null,
+          );
+        } else {
+          outFindItem.hidden = true;
+          primaryModelLine.hidden = true;
+        }
+
+        const t = data.timings || {};
+
+        const std = data.standard_llm;
+        if (std && typeof std === "object") {
+          outStandardLlm.hidden = false;
+          if (std.error) {
+            stdError.textContent = String(std.error);
+            stdError.hidden = false;
+            stdModelLine.textContent = `模型：${std.model || "—"}（出错）`;
+            stdIntentHuman.textContent = "—";
+            stdIntentCode.textContent = "—";
+            stdFindBlock.hidden = true;
+            stdNoExtract.hidden = true;
+            stdParamsJsonWrap.hidden = false;
+            stdRawJson.textContent = formatSearchParamsJson(
+              std.search_params,
+            );
+          } else {
+            stdError.hidden = true;
+            stdModelLine.textContent = `模型：${std.model || "—"} · 基线墙钟 ${fmtMs(std.baseline_wall_ms)}`;
+            stdIntentHuman.textContent =
+              INTENT_LABEL[std.intent] || std.intent || "—";
+            stdIntentCode.textContent = `枚举值：${std.intent ?? "—"}`;
+            if (std.intent === "FIND_ITEM" && std.search_params) {
+              stdFindBlock.hidden = false;
+              stdNoExtract.hidden = true;
+              stdSearchQ.textContent = std.search_params.q || "—";
+              stdAttrLlm.textContent = fmtMs(std.attribute_llm_invoke_ms);
+              stdAttrWall.textContent = fmtMs(std.attribute_extraction_ms);
+              stdParamsJsonWrap.hidden = false;
+              stdRawJson.textContent = formatSearchParamsJson(
+                std.search_params,
+              );
+            } else {
+              stdFindBlock.hidden = true;
+              stdNoExtract.hidden = false;
+              stdParamsJsonWrap.hidden = false;
+              stdRawJson.textContent = formatSearchParamsJson(
+                std.search_params,
+              );
+            }
+          }
+        } else {
+          outStandardLlm.hidden = true;
+        }
+
+        rowDictLookup.textContent = fmtMs(
+          data.timings?.dictionary_lookup_ms ?? null,
+        );
+        rowLlmInvoke.textContent = fmtMs(
+          data.intent_llm_invoke_ms ?? null,
+        );
+        rowRecognition.textContent = fmtMs(
+          data.intent_recognition_ms ?? t.classify?.classify_wall_ms,
+        );
+        rowHandler.textContent = fmtMs(t.handler_total_ms);
+        rowClient.textContent = fmtMs(client_roundtrip_ms);
+
+        timingsRaw.textContent = JSON.stringify(
+          {
+            intent: data.intent,
+            routing: data.routing ?? null,
+            intent_skip_reason: data.intent_skip_reason ?? null,
+            verb_remainder: data.verb_remainder ?? null,
+            dictionary: data.dictionary ?? null,
+            intent_recognition_ms: data.intent_recognition_ms,
+            intent_llm_invoke_ms: data.intent_llm_invoke_ms,
+            search_params: data.search_params ?? null,
+            price_heuristic: data.price_heuristic ?? null,
+            deterministic_slots: data.deterministic_slots ?? null,
+            attribute_extraction_ms: data.attribute_extraction_ms ?? null,
+            attribute_llm_invoke_ms: data.attribute_llm_invoke_ms ?? null,
+            primary_model: data.primary_model ?? null,
+            enable_thinking: data.enable_thinking ?? null,
+            standard_llm: data.standard_llm ?? null,
+            client_fetch_roundtrip_ms: client_roundtrip_ms,
+            timings: t,
+          },
+          null,
+          2,
+        );
+        outTiming.hidden = false;
+      } catch (e) {
+        err.textContent = String(e);
+        err.hidden = false;
+      } finally {
+        sendBtn.disabled = false;
+      }
+    }
+
+    sendBtn.addEventListener("click", run);
+    msgEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) run();
+    });
+  </script>
+</body>
+
+</html>
