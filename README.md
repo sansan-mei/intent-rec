@@ -87,13 +87,12 @@ src/
   index.ts              # Hono 路由与 /intent 组装
 dist/
   difyPriceHeuristic.js # build:dify 产物
-prompts/                # 抽取 / 分类等提示片段（若 workflow 外置维护）
+prompts/                # 抽取 / 分类等提示片段
 ```
 
-## 与 Dify / 工作流的关系
+## 与 Dify 代码节点
 
-- 线上可在 **Dify** 中用代码节点执行 `dist/difyPriceHeuristic.js` 内联逻辑，对用户输入做 **价位前置规范化**（与仓库内 `preprocessPriceTerms` + `extractHeuristicPriceFromSegments` 同源思路）。  
-- 仓库根目录下的 `AI找货v2.yml` 等为工作流导出示例，**以本仓库 TypeScript 为源码真相**；发布 Dify 前建议重新执行 `bun run build:dify` 并同步产物。
+`bun run build:dify` 生成的 `dist/difyPriceHeuristic.js` 可粘贴到 **Dify 代码节点**，对用户输入做 **价位前置规范化**（与仓库内 `preprocessPriceTerms`、`extractHeuristicPriceFromSegments` 同源思路）。修改源码后请重新构建再同步到线上。
 
 ## 设计原则（简述）
 
