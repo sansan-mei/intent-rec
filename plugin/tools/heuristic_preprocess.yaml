@@ -1,0 +1,33 @@
+identity:
+  author: huili
+  name: heuristic_preprocess
+  label:
+    en_US: Heuristic Preprocess
+    zh_Hans: 启发式预处理
+description:
+  human:
+    en_US: Normalize query price slang and merge deterministic price range into attributes.
+    zh_Hans: 对用户 query 做价位行话规范化，并将启发式价格区间合并进属性。
+  llm: >
+    Use this tool before attribute extraction or retrieval when user text may include
+    price slang like "小六/中五/千把块". It returns normalized query text and merged
+    attributes with price_min/price_max as deterministic hints.
+parameters:
+  - name: query
+    type: string
+    required: true
+    label:
+      en_US: Query
+      zh_Hans: 用户原始 query
+    human_description:
+      en_US: The current user request text.
+      zh_Hans: 当前用户输入文本。
+  - name: confirmed_attributes
+    type: object
+    required: false
+    label:
+      en_US: Confirmed Attributes
+      zh_Hans: 已确认属性
+    human_description:
+      en_US: Existing attributes to merge with heuristic output.
+      zh_Hans: 上游已确认属性对象，会与启发式结果合并。
