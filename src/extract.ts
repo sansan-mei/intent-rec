@@ -247,8 +247,6 @@ export async function extractSearchParams(
     category_id: null,
     core_word: null,
     is_early_close: null,
-    inner_circle_size_min: null,
-    inner_circle_size_max: null,
     negative_filters: null,
   };
 

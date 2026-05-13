@@ -8,7 +8,7 @@ export const SearchParamsSchema = z.object({
   q: z
     .string()
     .describe(
-      "向量检索用：极短的实体+规格+品相档位串联（约12–48字为宜），无场景空话与价位复述",
+      "向量检索用：贴近商品标题和AI总结风格的短自然描述（约12-48字），优先包含品类、材质、形态及少量明确属性；允许保留圈口、卡数、毫米等标题常见尺寸词；禁止价格、热度复述和无证据发挥",
     ),
   price_min: z
     .number()
@@ -40,14 +40,6 @@ export const SearchParamsSchema = z.object({
     .nullable()
     .describe("必须为 null，禁止填写任何实体词"),
   is_early_close: z.boolean().nullable(),
-  inner_circle_size_min: z
-    .number()
-    .nullable()
-    .describe("仅手镯戒指且有圈口数字；挂件佛像等非环形为 null"),
-  inner_circle_size_max: z
-    .number()
-    .nullable()
-    .describe("仅手镯戒指且有圈口数字；挂件佛像等非环形为 null"),
   negative_filters: z.array(z.string()).nullable(),
 });
 
