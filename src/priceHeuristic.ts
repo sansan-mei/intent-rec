@@ -26,6 +26,9 @@ type LexEntry = { patterns: string[]; min: number; max: number };
 
 const LEXICON: LexEntry[] = PRICE_SLANG_LEXICON;
 
+/**
+ * 判断行话词是否只是「小/中/大五六七 N 开」结构的一部分，避免重复命中较短行话。
+ */
 function lexiconPatternShadowedByKai(text: string, p: string): boolean {
   let from = 0;
   while (true) {
@@ -37,7 +40,9 @@ function lexiconPatternShadowedByKai(text: string, p: string): boolean {
   }
 }
 
-/** 「中五价位」里含「中五价」子串，不应命中行话「中五价」条目 */
+/**
+ * 判断「中五价位」这类词是否只是更长「价位」短语的一部分，避免误命中「中五价」。
+ */
 function lexiconJiaFollowedByWei(text: string, p: string): boolean {
   if (!p.endsWith("价")) return false;
   let from = 0;
@@ -49,6 +54,9 @@ function lexiconJiaFollowedByWei(text: string, p: string): boolean {
   }
 }
 
+/**
+ * 展平价位行话词典，并按词长倒序排列，供长词优先匹配使用。
+ */
 function lexiconExpandPairs(): { pattern: string; min: number; max: number }[] {
   return LEXICON.flatMap((e) =>
     e.patterns.map((pattern) => ({
@@ -95,6 +103,9 @@ const CN_UNIT: Record<string, number> = {
   九: 9,
 };
 
+/**
+ * 解析一到两位中文小数字，如「十」「十三」「三十六」。
+ */
 function smallChineseSection(s: string): number | null {
   if (!s || s === "十") return 10;
   const m = s.match(/^十([一二三四五六七八九])?$/);
@@ -109,6 +120,9 @@ function smallChineseSection(s: string): number | null {
   return null;
 }
 
+/**
+ * 解析 0 到 999 范围内的中文数字片段，支持「百」位。
+ */
 function sectionTo999(s: string): number | null {
   if (!s) return 0;
   const baiIdx = s.indexOf("百");
@@ -124,6 +138,9 @@ function sectionTo999(s: string): number | null {
   return smallChineseSection(s) ?? CN_UNIT[s] ?? null;
 }
 
+/**
+ * 解析 0 到 9999 范围内的中文数字片段，支持「千」位。
+ */
 function sectionTo9999(s: string): number | null {
   if (!s) return 0;
   const qIdx = s.indexOf("千");
@@ -191,6 +208,9 @@ export function parseChineseMoneyLoose(raw: string): number | null {
   return sectionTo9999(s);
 }
 
+/**
+ * 将阿拉伯数字字符串标准化为 number，支持逗号分隔。
+ */
 function normArab(tok: string): number | null {
   const t = tok.replace(/,/g, "").trim();
   if (!t) return null;
@@ -198,6 +218,9 @@ function normArab(tok: string): number | null {
   return Number.isFinite(a) ? a : null;
 }
 
+/**
+ * 根据单位后缀把数字缩放为元；支持万/w、千/k，缺省时直接四舍五入。
+ */
 function scale(n: number, suf: string | undefined): number {
   if (!suf) return Math.round(n);
   const u = suf.toLowerCase();
@@ -206,12 +229,18 @@ function scale(n: number, suf: string | undefined): number {
   return Math.round(n);
 }
 
+/**
+ * 判断相邻文本是否包含预算/价格语境，用于降低裸数字误判为金额的概率。
+ */
 function hasPriceContext(near: string): boolean {
   return /预算|价位|价格|多少钱|成交|元|块|不超过|封顶|上限|以内|以下|至少|不低于|不少于|开价|给价|行话|价位段|心理价|承受|千元左右|万左右|块钱|捡漏|超值/u.test(
     near
   );
 }
 
+/**
+ * 判断 `18k`、`24K` 这类 token 是否更像金饰纯度，而不是预算金额。
+ */
 function isLikelyGoldPurityK(
   rawNum: string,
   text: string,
@@ -237,6 +266,9 @@ function isLikelyGoldPurityK(
 
 type Acc = { min: number | null; max: number | null };
 
+/**
+ * 用新的闭区间收紧累计价格范围，并记录命中来源。
+ */
 function tightenRange(
   acc: Acc,
   lo: number,
@@ -251,16 +283,25 @@ function tightenRange(
   acc.max = acc.max === null ? b : Math.min(acc.max, b);
 }
 
+/**
+ * 应用价格上限约束，并记录命中来源。
+ */
 function applyCap(acc: Acc, cap: number, hit: string, hits: string[]) {
   hits.push(hit);
   acc.max = acc.max === null ? cap : Math.min(acc.max, cap);
 }
 
+/**
+ * 应用价格下限约束，并记录命中来源。
+ */
 function applyFloor(acc: Acc, floor: number, hit: string, hits: string[]) {
   hits.push(hit);
   acc.min = acc.min === null ? floor : Math.max(acc.min, floor);
 }
 
+/**
+ * 将「左右/上下」类中心价转换为浮动区间，并合并到累计价格范围。
+ */
 function applyAround(acc: Acc, center: number, hits: string[]) {
   hits.push(`around:${center}×${AROUND_LOW}~${AROUND_HIGH}`);
   const lo = Math.max(0, Math.round(center * AROUND_LOW));
@@ -635,8 +676,9 @@ export function extractHeuristicPrice(message: string): PriceHeuristic {
   };
 }
 
-/** 多段合并时给 meta.hits 打上 seg 前缀，便于 log 对齐换行分条。 */
-
+/**
+ * 多段合并时给 meta.hits 打上 `segN:` 前缀，便于日志对齐换行分条。
+ */
 function withSegPrefixedHits(h: PriceHeuristic, seg1Based: number): PriceHeuristic {
   return {
     price_min: h.price_min,
@@ -700,8 +742,9 @@ function mergePairPriceHeuristics(
   return { price_min: min, price_max: max, meta: { hits: flatHits } };
 }
 
-/** 多轮（换行分条）：从左到右折叠合并，每步应用交集与「末条修正」规则 */
-
+/**
+ * 多轮换行分条场景下，从左到右折叠合并每段价格区间。
+ */
 function mergeSegmentPriceHeuristics(parts: PriceHeuristic[]): PriceHeuristic {
   if (parts.length === 0) {
     return { price_min: null, price_max: null, meta: { hits: [] } };
@@ -763,6 +806,9 @@ export function formatPriceHeuristicForLlmHint(h: PriceHeuristic): string {
     .join("\n");
 }
 
+/**
+ * 转义正则表达式中的特殊字符，用于安全构造动态匹配表达式。
+ */
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -785,7 +831,9 @@ const EXTRA_Q_PRICE_SLANG = [
 
 let cachedStripPatterns: string[] | null = null;
 
-/** 价位行话子串，从检索串 q 中剔除（长词优先；2 字词仅匹配「非汉字-词-非汉字」避免伤「小五珠」等） */
+/**
+ * 从检索串 q 中剔除价位行话子串；长词优先，短词只在非汉字边界命中。
+ */
 export function stripPriceSlangFromSearchQ(q: string): string {
   if (!q.trim()) return "";
   if (!cachedStripPatterns) {
@@ -830,6 +878,9 @@ export function finalizeSearchParamsQ(
   return { ...sp, q };
 }
 
+/**
+ * 将启发式价格结果合并进搜索参数；只要启发式生效，价格两侧都以启发式为准。
+ */
 export function mergeHeuristicPriceIntoSearchParams(
   sp: SearchParams,
   heuristic: PriceHeuristic

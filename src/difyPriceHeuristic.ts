@@ -7,6 +7,9 @@ type DifyInput = {
   arg1: string;
 };
 
+/**
+ * 将 Dify 传入的任意值稳定转成字符串；数组取最后一项，空值返回空字符串。
+ */
 function toText(v: unknown): string {
   if (Array.isArray(v)) {
     const last = v.length > 0 ? v[v.length - 1] : "";
@@ -28,14 +31,23 @@ function toText(v: unknown): string {
   }
 }
 
+/**
+ * 转义正则表达式中的特殊字符，便于把用户原文片段安全拼进 RegExp。
+ */
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/**
+ * 去掉多段价格命中标记中的 `segN:` 前缀，统一后续命中解析格式。
+ */
 function stripSegPrefix(hit: string): string {
   return hit.replace(/^seg\d+:/u, "");
 }
 
+/**
+ * 从价格启发式命中列表中，倒序提取最后一个行话词命中的原始词面。
+ */
 function lastLexiconPatternFromHits(hits: string[]): string | null {
   const cleaned = hits.map(stripSegPrefix);
   for (let i = cleaned.length - 1; i >= 0; i--) {
@@ -45,6 +57,9 @@ function lastLexiconPatternFromHits(hits: string[]): string | null {
   return null;
 }
 
+/**
+ * 从价格启发式命中列表中，倒序提取最后一个「小/中/大 + 五/六/七 + 数字开」词面。
+ */
 function lastKaiSpanFromHits(hits: string[]): string | null {
   const cleaned = hits.map(stripSegPrefix);
   for (let i = cleaned.length - 1; i >= 0; i--) {
@@ -54,6 +69,9 @@ function lastKaiSpanFromHits(hits: string[]): string | null {
   return null;
 }
 
+/**
+ * 从价格启发式命中列表中，倒序提取最后一个「左右/上下」类预算中心值。
+ */
 function lastAroundCenterFromHits(hits: string[]): number | null {
   const cleaned = hits.map(stripSegPrefix);
   for (let i = cleaned.length - 1; i >= 0; i--) {
@@ -66,7 +84,9 @@ function lastAroundCenterFromHits(hits: string[]): number | null {
   return null;
 }
 
-/** 行话词后若紧跟「左右」类，一并作为锚点（如 中千左右）。 */
+/**
+ * 行话词后若紧跟「左右」类修饰词，则把修饰词一并纳入预算锚点。
+ */
 function extendLexiconWithAround(raw: string, pattern: string): string {
   const i = raw.indexOf(pattern);
   if (i < 0) return pattern;
@@ -77,7 +97,7 @@ function extendLexiconWithAround(raw: string, pattern: string): string {
 }
 
 /**
- * 从用户原句抽与句面一致的预算口语，用于 `（5000左右->4000-6000）` 左侧。
+ * 从用户原句抽取与句面一致的预算口语，用于补充到 query 的价格换算说明左侧。
  */
 function colloquialBudgetAnchorFromRaw(
   raw: string,
@@ -148,9 +168,7 @@ function colloquialBudgetAnchorFromRaw(
 }
 
 /**
- * Dify 代码节点入口：
- * - 输入：当前用户对话字符串（优先 query，其次 arg1）
- * - 输出：仅返回 query 字符串对象（供下游节点继续使用）
+ * Dify 代码节点入口：扩展价格行话，并在能确定价格区间时追加「原始预算->数值区间」提示。
  */
 function main(input: DifyInput) {
   const raw = toText(input.arg1).trim();
