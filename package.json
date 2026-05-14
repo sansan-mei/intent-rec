@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
-    "build:dify": "bunx esbuild \"src/difyPriceHeuristic.ts\" --bundle --format=esm --platform=browser --tree-shaking=false --outfile=\"dist/difyPriceHeuristic.js\""
+    "build:dify": "bun run build:dify:pre && bun run build:dify:post",
+    "build:dify:pre": "bunx esbuild \"src/difyPriceHeuristic.ts\" --bundle --format=esm --platform=browser --tree-shaking=false --outfile=\"dist/difyPriceHeuristic.js\"",
+    "build:dify:post": "bunx esbuild \"src/difyPostRuleEngine.ts\" --bundle --format=esm --platform=browser --tree-shaking=false --outfile=\"dist/difyPostRuleEngine.js\""
   },
   "dependencies": {
     "@langchain/core": "^0.3.80",

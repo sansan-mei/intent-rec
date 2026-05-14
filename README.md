@@ -68,7 +68,9 @@ bun run dev
 |------|------|
 | `bun run start` | 启动 API |
 | `bun run dev` | 监听文件变更重启 |
-| `bun run build:dify` | 将 `src/difyPriceHeuristic.ts` 打成单文件 `dist/difyPriceHeuristic.js`，便于粘贴到 **Dify 代码节点**（浏览器 / ESM、无 Node 内置依赖） |
+| `bun run build:dify` | 一次性打包两个 Dify 脚本：前置启发式 `dist/difyPriceHeuristic.js` 与后置规则引擎 `dist/difyPostRuleEngine.js` |
+| `bun run build:dify:pre` | 单独打包 `src/difyPriceHeuristic.ts` 到 `dist/difyPriceHeuristic.js` |
+| `bun run build:dify:post` | 将 `src/difyPostRuleEngine.ts` 打成单文件 `dist/difyPostRuleEngine.js`，用于 **Dify 代码节点**中的后置规则清洗 |
 
 ## 目录结构（核心）
 
@@ -83,16 +85,40 @@ src/
   deterministicSlots.ts # 数字价位/圈口等正则槽位（与启发式互补）
   sanitizeSearchParams.ts # 后置规则引擎：对齐原文、清字段、防价与其它数字串台
   difyPriceHeuristic.ts # Dify 专用入口：仅输出处理后的 query 串
+  difyPostRuleEngine.ts # Dify 专用后置规则引擎：清洗 LLM 抽取结果并输出 search_params
   searchSchema.ts       # SearchParams Zod Schema
   index.ts              # Hono 路由与 /intent 组装
 dist/
   difyPriceHeuristic.js # build:dify 产物
+  difyPostRuleEngine.js # build:dify:post 产物
 prompts/                # 抽取 / 分类等提示片段
 ```
 
 ## 与 Dify 代码节点
 
-`bun run build:dify` 生成的 `dist/difyPriceHeuristic.js` 可粘贴到 **Dify 代码节点**，对用户输入做 **价位前置规范化**（与仓库内 `preprocessPriceTerms`、`extractHeuristicPriceFromSegments` 同源思路）。修改源码后请重新构建再同步到线上。
+`bun run build:dify` 会同时生成：
+
+- `dist/difyPriceHeuristic.js`：前置启发式，对用户输入做 **价位前置规范化**
+- `dist/difyPostRuleEngine.js`：后置规则引擎，对属性抽取结果做 **后置清洗**
+
+`bun run build:dify:post` 生成的 `dist/difyPostRuleEngine.js` 可粘贴到 **Dify 代码节点**，对 LLM 已抽取出的结构化字段做 **后置规则清洗**：优先复用 `after_list` 中的前置启发式文本来纠正 `price_*`，再结合 `query` / `query_list` 判断当前轮是否在补充上一轮条件；无句面证据时清空误填的 `price_*` / `heat_*`；同时从最终 `q` 中提取 `inner_circle_size_min`，仅对手镯/戒指等环形商品生效。这个节点**不会改写 `q`**。若你要替换 `属性赋值` 节点，建议输入为：
+
+- `query`：当前轮用户原话
+- `after_list`：前置启发式后的多轮数组
+- `query_list`：原始多轮数组
+- `new_attributes_other`：LLM 抽取出的属性对象或 JSON 字符串
+
+返回值仅保留：
+
+- `merged_attributes`：清洗后的属性对象
+
+说明：
+
+- 该节点会优先把 `query` 视为当前轮硬证据。
+- 当当前轮像“补充条件”而不是“改口重开”时，会参考 `query_list` 中上一轮原话，避免误清空历史预算/热度。
+- 由于 `after_list` 仍是文本而不是结构化 heuristic，后置节点会在其基础上再做一次轻量解析，用于恢复 `price_*`。
+
+修改源码后请重新构建再同步到线上。
 
 ## 设计原则（简述）
 
