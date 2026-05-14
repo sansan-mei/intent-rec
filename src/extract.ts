@@ -240,6 +240,8 @@ export async function extractSearchParams(
     price_max: null,
     heat_min: null,
     heat_max: null,
+    inner_circle_size_min: null,
+    inner_circle_size_max: null,
     is_uncertain: true,
     is_free_guarantee: null,
     is_searchable: false,

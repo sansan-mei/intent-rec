@@ -6,6 +6,7 @@
 import { KAI_DIGIT, rangeForKaiOpen } from "./priceKaiOpen";
 import { preprocessUserPriceTerms } from "./preprocessPriceTerms";
 import { PRICE_SLANG_LEXICON } from "./priceSlangLexicon";
+import { normalizeSearchParamsForSearch } from "./searchQueryNormalizer";
 import type { SearchParams } from "./searchSchema";
 
 /** 「左右」类表述：中心价浮动（可与产品对齐） */
@@ -259,7 +260,13 @@ function isLikelyGoldPurityK(
   if (looksLikePurityValue && hasJewelryContext && noPriceContext) return true;
 
   const onlyToken = text.trim().match(/^([\d,]+(?:\.\d+)?)\s*[kK]$/u);
-  if (onlyToken && (n === 14 || n === 18 || n === 22 || n === 24)) return true;
+  if (
+    onlyToken &&
+    Number.isInteger(n) &&
+    [9, 10, 14, 18, 22, 24].includes(n)
+  ) {
+    return true;
+  }
 
   return false;
 }
@@ -466,10 +473,10 @@ export function extractHeuristicPrice(message: string): PriceHeuristic {
     }
   }
 
-  if (/(?:价格|价位|预算)?\s*千元以内|千元以下/u.test(text)) {
+  if (/(?:价格|价位|预算)?\s*千元(?:内|以内|以下)/u.test(text)) {
     applyCap(acc, 1000, `cap_qian_yuan:${1000}`, hits);
   }
-  if (/(?:价格|价位|预算)?\s*万元以内|万元以下/u.test(text)) {
+  if (/(?:价格|价位|预算)?\s*万元(?:内|以内|以下)/u.test(text)) {
     applyCap(acc, 10_000, `cap_wan_yuan:${10_000}`, hits);
   }
 
@@ -561,7 +568,7 @@ export function extractHeuristicPrice(message: string): PriceHeuristic {
   }
 
   const around1Re =
-    /([\d,]+(?:\.\d+)?)\s*(万|w|W|千|k|K)?\s*(左右|上下|大概|差不多)(?:吧|啊|呀|呢|哦|噢|嗯)?/u;
+    /([\d,]+(?:\.\d+)?)\s*(万|w|W|千|k|K|元|块钱|块)?\s*(左右|上下|大概|差不多)(?:吧|啊|呀|呢|哦|噢|嗯)?/u;
   const around1 = around1Re.exec(text);
   if (around1) {
     let c = normArab(around1[1]);
@@ -875,7 +882,7 @@ export function finalizeSearchParamsQ(
   if (!q) {
     q = (sp.q || "").trim() || "用户未提供可检索描述";
   }
-  return { ...sp, q };
+  return normalizeSearchParamsForSearch({ ...sp, q }, userMessageTrimmed);
 }
 
 /**

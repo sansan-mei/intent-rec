@@ -6,6 +6,7 @@ import {
 } from "./priceHeuristic";
 import { sanitizeSearchParamsAgainstUserText } from "./sanitizeSearchParams";
 import { parseDeterministicNumericSlots } from "./deterministicSlots";
+import { normalizeSearchParamsForSearch } from "./searchQueryNormalizer";
 import type { SearchParams } from "./searchSchema";
 
 type DifyInput = {
@@ -17,6 +18,7 @@ type DifyInput = {
 
 type DifySearchParams = SearchParams & {
   inner_circle_size_min?: number | null;
+  inner_circle_size_max?: number | null;
   [key: string]: unknown;
 };
 
@@ -24,12 +26,6 @@ const TURN_RESET_RE =
   /重新|重来|换成|改成|改到|换个|重找|重新找|不看了|算了|别看|不要这个/u;
 const HEAT_HINT_RE =
   /围观|出价|竞拍人|竞拍\s*人数|热度|围观量|围观数|出价数|出价人次|人次上限|人数上限/u;
-const RING_ITEM_RE = /手镯|贵妃镯|圆条|正圈|镯|戒指|戒圈|指环|扳指/u;
-const INNER_SIZE_Q_PATTERNS: RegExp[] = [
-  /(?:圈口|戒圈|内径|港码|手寸|直径)\s*[:：]?\s*(\d{1,3}(?:\.\d+)?)/iu,
-  /(\d{1,3}(?:\.\d+)?)\s*(?:圈口|戒圈)/iu,
-  /(\d{1,3}(?:\.\d+)?)\s*(?:mm|毫米)\b/iu,
-];
 
 /**
  * 将 Dify 代码节点传入的任意值稳定转成字符串。
@@ -213,6 +209,7 @@ function normalizeSearchParams(
     is_early_close: toNullableBoolean(rawInput.is_early_close),
     negative_filters: toNullableStringArray(rawInput.negative_filters),
     inner_circle_size_min: toNullableNumber(rawInput.inner_circle_size_min),
+    inner_circle_size_max: toNullableNumber(rawInput.inner_circle_size_max),
   };
 }
 
@@ -319,70 +316,6 @@ function applyDeterministicPriceFallback(
 }
 
 /**
- * 收集多个 number|null 值中的有效数字，便于后续做“字段串味”比对。
- */
-function collectNonNullNumbers(
-  ...values: Array<number | null | undefined>
-): Set<number> {
-  const out = new Set<number>();
-  for (const v of values) {
-    if (typeof v === "number" && Number.isFinite(v)) out.add(v);
-  }
-  return out;
-}
-
-/**
- * 判断一个候选数字是否等于指定集合中的任一值。
- * 主要用于识别“圈口误等于价格”的串味场景。
- */
-function equalsAnyValue(
-  candidate: number | null | undefined,
-  values: Set<number>
-): boolean {
-  return typeof candidate === "number" && values.has(candidate);
-}
-
-/**
- * 从最终 `q` 中提取圈口，只保留 `inner_circle_size_min`。
- * 规则：
- * - 仅当 `q` 中包含手镯/戒指等环形商品词时才尝试提取
- * - 仅识别 `圈口58`、`58圈口`、`23戒圈`、`56mm` 这类明确写法
- * - 若提取出的数字与价格数字串味，则放弃
- */
-function deriveInnerCircleSizeMinFromQ(
-  sp: DifySearchParams,
-  heuristic: PriceHeuristic
-): DifySearchParams {
-  const out: DifySearchParams = { ...sp };
-  const q = toNullableString(out.q) ?? "";
-  if (!q || !RING_ITEM_RE.test(q)) {
-    out.inner_circle_size_min = null;
-    return out;
-  }
-
-  const priceValues = collectNonNullNumbers(
-    out.price_min,
-    out.price_max,
-    heuristic.price_min,
-    heuristic.price_max
-  );
-
-  let min: number | null = null;
-  for (const re of INNER_SIZE_Q_PATTERNS) {
-    const m = re.exec(q);
-    if (!m) continue;
-    const n = toNullableNumber(m[1]);
-    if (n === null) continue;
-    if (equalsAnyValue(n, priceValues)) continue;
-    min = n;
-    break;
-  }
-
-  out.inner_circle_size_min = min;
-  return out;
-}
-
-/**
  * Dify 代码节点入口。
  *
  * 这层后置规则引擎主要负责：
@@ -390,8 +323,8 @@ function deriveInnerCircleSizeMinFromQ(
  * 2. 优先复用 `after_list` 构造价格启发式来源，再纠正 `price_*`
  * 3. 用 `query` 做当前轮证据，用 `query_list` 决定是否允许继承上一轮约束
  * 4. 无句面证据时清空误填的 `price_*`、`heat_*`
- * 5. 从最终 `q` 中提取 `inner_circle_size_min`
- * 6. 强制 `core_word=null`，且不改写 `q`
+ * 5. 对极短搜索词做确定性 `q` 扩写，并提取 `inner_circle_size_min/max`
+ * 6. 强制 `core_word=null`
  *
  * 输入建议传入：
  * - `query`：当前轮用户原话
@@ -435,9 +368,9 @@ function main(input: DifyInput) {
     evidenceText,
     heuristic
   );
-  const finalized = deriveInnerCircleSizeMinFromQ(
+  const finalized = normalizeSearchParamsForSearch(
     { ...normalized, ...sanitizedCore, core_word: null },
-    heuristic
+    evidenceText
   );
 
   return {

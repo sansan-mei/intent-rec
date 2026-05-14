@@ -30,6 +30,14 @@ export const SearchParamsSchema = z.object({
     .number()
     .nullable()
     .describe("同上；未提及则为 null"),
+  inner_circle_size_min: z
+    .number()
+    .nullable()
+    .describe("仅当用户明确提到手镯/戒指圈口、戒圈、内径、手寸等尺寸时填写下限；否则 null"),
+  inner_circle_size_max: z
+    .number()
+    .nullable()
+    .describe("仅当用户明确提到圈口/戒圈范围时填写上限；单点尺寸保持 null；否则 null"),
   is_uncertain: z.boolean().nullable(),
   is_free_guarantee: z.boolean().nullable(),
   is_searchable: z.boolean().nullable(),

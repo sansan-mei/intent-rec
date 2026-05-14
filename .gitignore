@@ -6,3 +6,4 @@ node_modules/
 *bun.lock
 dist
 plugin.difypkg
+query*.json

@@ -8,7 +8,7 @@
 |------|------|------------|
 | **前置启发式** | 从用户原文解析价位行话、口语预算、数字区间；可替换行话为数字区间供 LLM 对齐；与确定性槽位互补 | `src/priceHeuristic.ts`、`src/priceSlangLexicon.ts`、`src/priceKaiOpen.ts`、`src/preprocessPriceTerms.ts`、`src/deterministicSlots.ts` |
 | **LLM** | 意图分类（可关）、属性抽取为 `SearchParams`（Zod 结构化输出） | `src/classify.ts`、`src/extract.ts`、`src/searchSchema.ts` |
-| **后置规则引擎** | 按原文强制校验：无句面依据时清空臆测价/热度/圈口；价与 heat/圈口交叉去污染；检索词 `q` 去行话 | `src/sanitizeSearchParams.ts`、`src/priceHeuristic.ts`（`messageSuggestsUserStatedBudget`、`finalizeSearchParamsQ` 等） |
+| **后置规则引擎** | 按原文强制校验：无句面依据时清空臆测价/热度/圈口；价与 heat/圈口交叉去污染；检索词 `q` 去行话，并对高频短词做确定性扩写 | `src/sanitizeSearchParams.ts`、`src/searchQueryNormalizer.ts`、`src/priceHeuristic.ts`（`messageSuggestsUserStatedBudget`、`finalizeSearchParamsQ` 等） |
 
 整体数据流（属性抽取链路）可概括为：
 
@@ -83,6 +83,7 @@ src/
   priceKaiOpen.ts       # 「小六一开」类 X 开档位解析
   preprocessPriceTerms.ts # 用户原文行话 → 数字区间替换（最长匹配）
   deterministicSlots.ts # 数字价位/圈口等正则槽位（与启发式互补）
+  searchQueryNormalizer.ts # 高频短词 q 扩写、圈口 min/max 提取
   sanitizeSearchParams.ts # 后置规则引擎：对齐原文、清字段、防价与其它数字串台
   difyPriceHeuristic.ts # Dify 专用入口：仅输出处理后的 query 串
   difyPostRuleEngine.ts # Dify 专用后置规则引擎：清洗 LLM 抽取结果并输出 search_params
@@ -101,7 +102,7 @@ prompts/                # 抽取 / 分类等提示片段
 - `dist/difyPriceHeuristic.js`：前置启发式，对用户输入做 **价位前置规范化**
 - `dist/difyPostRuleEngine.js`：后置规则引擎，对属性抽取结果做 **后置清洗**
 
-`bun run build:dify:post` 生成的 `dist/difyPostRuleEngine.js` 可粘贴到 **Dify 代码节点**，对 LLM 已抽取出的结构化字段做 **后置规则清洗**：优先复用 `after_list` 中的前置启发式文本来纠正 `price_*`，再结合 `query` / `query_list` 判断当前轮是否在补充上一轮条件；无句面证据时清空误填的 `price_*` / `heat_*`；同时从最终 `q` 中提取 `inner_circle_size_min`，仅对手镯/戒指等环形商品生效。这个节点**不会改写 `q`**。若你要替换 `属性赋值` 节点，建议输入为：
+`bun run build:dify:post` 生成的 `dist/difyPostRuleEngine.js` 可粘贴到 **Dify 代码节点**，对 LLM 已抽取出的结构化字段做 **后置规则清洗**：优先复用 `after_list` 中的前置启发式文本来纠正 `price_*`，再结合 `query` / `query_list` 判断当前轮是否在补充上一轮条件；无句面证据时清空误填的 `price_*` / `heat_*`；同时对 `挂件`、`黑色`、`18k`、裸两位圈口等高频短词做确定性 `q` 扩写，并提取 `inner_circle_size_min/max`，仅对手镯/戒指等环形商品生效。若你要替换 `属性赋值` 节点，建议输入为：
 
 - `query`：当前轮用户原话
 - `after_list`：前置启发式后的多轮数组
@@ -117,6 +118,8 @@ prompts/                # 抽取 / 分类等提示片段
 - 该节点会优先把 `query` 视为当前轮硬证据。
 - 当当前轮像“补充条件”而不是“改口重开”时，会参考 `query_list` 中上一轮原话，避免误清空历史预算/热度。
 - 由于 `after_list` 仍是文本而不是结构化 heuristic，后置节点会在其基础上再做一次轻量解析，用于恢复 `price_*`。
+- 价位启发式会覆盖真实口语里的 `千元内` / `万元内`、`6000元左右` 等预算表达；`9k`、`18k` 等常见 K 金纯度不会被当成价格。
+- 后置规则会把 `56-58圈口`、`圈口63到65` 输出为 `inner_circle_size_min/max` 范围；裸 `57` 或 `56圈口` 这类单点圈口只填 `inner_circle_size_min`，不填 max。
 
 修改源码后请重新构建再同步到线上。
 
@@ -124,7 +127,7 @@ prompts/                # 抽取 / 分类等提示片段
 
 1. **前置**：能由词典 + 正则 + 中文数字解析确定的价位，优先写入启发式结果，并与 LLM 输出 **合并**（见 `mergeHeuristicPriceIntoSearchParams`）。  
 2. **后置**：无用户句面支撑时，不允许保留模型填的 `price_*`、`heat_*`、`inner_circle_*` 等（见 `sanitizeSearchParamsAgainstUserText`）。  
-3. **检索串 `q`**：剥离价位行话，避免向量检索被「小六」「中五」等污染（见 `finalizeSearchParamsQ` / `stripPriceSlangFromSearchQ`）。
+3. **检索串 `q`**：剥离价位行话，避免向量检索被「小六」「中五」等污染；对 `挂件`、`黑色`、`18k` 等真实高频短词做确定性扩写（见 `finalizeSearchParamsQ` / `normalizeSearchParamsForSearch`）。
 
 ## License
 

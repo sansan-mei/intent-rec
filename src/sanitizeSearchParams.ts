@@ -7,6 +7,16 @@ import type { SearchParams } from "./searchSchema";
 /** 围观/出价/热度等：未在句中出现则 heat 须为 null */
 const HEAT_HINT_RE =
   /围观|出价|竞拍人|竞拍\s*人数|热度|围观量|围观数|出价数|出价人次|人次上限|人数上限/i;
+const INNER_CIRCLE_HINT_RE =
+  /圈口|戒圈|内径|港码|手寸|直径|\d{1,3}(?:\.\d+)?\s*(?:mm|毫米)\b/i;
+const STANDALONE_CIRCLE_RE = /^\s*(\d{2}(?:\.\d+)?)\s*$/;
+
+function textLooksLikeStandaloneCircle(text: string): boolean {
+  const m = STANDALONE_CIRCLE_RE.exec(text);
+  if (!m) return false;
+  const n = Number(m[1]);
+  return Number.isFinite(n) && n >= 45 && n <= 75;
+}
 
 function collectNonNullNumbers(
   ...values: Array<number | null | undefined>
@@ -53,6 +63,12 @@ export function sanitizeSearchParamsAgainstUserText(
   if (!HEAT_HINT_RE.test(text)) {
     out.heat_min = null;
     out.heat_max = null;
+  }
+
+  const standaloneCircle = textLooksLikeStandaloneCircle(text);
+  if (!INNER_CIRCLE_HINT_RE.test(text) && !standaloneCircle) {
+    out.inner_circle_size_min = null;
+    out.inner_circle_size_max = null;
   }
 
   const priceValues = collectNonNullNumbers(

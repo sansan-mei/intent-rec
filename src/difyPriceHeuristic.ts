@@ -107,7 +107,7 @@ function colloquialBudgetAnchorFromRaw(
   if (!s) return null;
 
   const arAround =
-    /([\d,]+(?:\.\d+)?)\s*(万|w|W|千|k|K)?\s*(左右|上下|大概|差不多)(?:吧|啊|呀|呢|哦|噢|嗯)?/u.exec(
+    /([\d,]+(?:\.\d+)?)\s*(万|w|W|千|k|K|元|块钱|块)?\s*(左右|上下|大概|差不多)(?:吧|啊|呀|呢|哦|噢|嗯)?/u.exec(
       s
     );
   if (arAround) {
