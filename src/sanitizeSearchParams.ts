@@ -2,6 +2,7 @@ import {
   messageSuggestsUserStatedBudget,
   type PriceHeuristic,
 } from "./priceHeuristic";
+import { sanitizeCategoryAgainstUserText } from "./categoryAttitude";
 import type { SearchParams } from "./searchSchema";
 
 /** 围观/出价/热度等：未在句中出现则 heat 须为 null */
@@ -89,5 +90,5 @@ export function sanitizeSearchParamsAgainstUserText(
     out.heat_max = null;
   }
 
-  return out;
+  return sanitizeCategoryAgainstUserText(out, text);
 }

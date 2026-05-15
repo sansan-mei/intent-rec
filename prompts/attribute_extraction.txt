@@ -87,5 +87,14 @@ q 规则：
 翡翠 1，玉石 2，钻石 3，彩宝 4，书画 39，黄金 40，金饰 107，奢品 108，文玩 109，钱币 110，品牌金 111，茶 112，酒 113，补品 114。
 若无法确定，填 null；不要为了凑字段而猜。
 
+否定与改口类目规则：
+1. `不要翡翠`、`别看和田玉`、`非钻石`、`不考虑彩宝` 等否定类目，只能进入 `negative_filters`，不能作为正向 `category_id` 依据，也不能因此猜一个其它类目。
+2. 若整句只有否定类目，没有其它正向类目证据，则 `category_id=null`。例如 `3000左右，不要翡翠` -> `category_id=null`，`negative_filters=["翡翠"]`。
+3. 同一句出现先要后不要、先不要后又要时，以该类目最后一次有效表态为准。例如：
+   - `我要翡翠，算了不要翡翠` -> `category_id=null`，`negative_filters=["翡翠"]`
+   - `不要翡翠，还是要翡翠手镯` -> `category_id=1`，不要把 `翡翠` 放入 `negative_filters`
+   - `我要翡翠，不要翡翠，换和田玉` -> `category_id=2`，`negative_filters=["翡翠"]`
+4. 若否定一个类目，同时正向提出另一个类目，只填写正向类目。例如 `不要翡翠，和田玉手镯` -> `category_id=2`，`negative_filters=["翡翠"]`。
+
 输出键名与类型必须完全一致：
 {"q":"字符串","price_min":数字或null,"price_max":数字或null,"heat_min":数字或null,"heat_max":数字或null,"inner_circle_size_min":数字或null,"inner_circle_size_max":数字或null,"is_uncertain":布尔,"is_free_guarantee":布尔或null,"is_searchable":布尔或null,"has_discount":布尔或null,"category_id":数字或null,"core_word":"字符串或null","is_early_close":布尔或null,"negative_filters":["字符串"]或null}
