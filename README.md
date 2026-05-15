@@ -92,7 +92,7 @@ src/
 dist/
   difyPriceHeuristic.js # build:dify 产物
   difyPostRuleEngine.js # build:dify:post 产物
-prompts/                # 抽取 / 分类等提示片段
+prompts/                # 抽取 / 分类等提示片段；`query_extraction.txt` 只生成 q，`filter_attribute_extraction.txt` 只生成筛选字段
 ```
 
 ## 与 Dify 代码节点
@@ -120,9 +120,19 @@ prompts/                # 抽取 / 分类等提示片段
 - 由于 `after_list` 仍是文本而不是结构化 heuristic，后置节点会在其基础上再做一次轻量解析，用于恢复 `price_*`。
 - 价位启发式会覆盖真实口语里的 `千元内` / `万元内`、`6000元左右` 等预算表达；`9k`、`18k` 等常见 K 金纯度不会被当成价格。
 - 后置规则会把 `56-58圈口`、`圈口63到65` 输出为 `inner_circle_size_min/max` 范围；裸 `57` 或 `56圈口` 这类单点圈口只填 `inner_circle_size_min`，不填 max。
-- 类目后置规则按同一句中每个类目的最后一次有效表态处理；`不要翡翠` 只进 `negative_filters`，不会反向猜其它 `category_id`。
+- 类目后置规则按同一句中每个类目的最后一次有效表态处理；`不要翡翠` 只进 `negative_filters`，不会反向猜其它 `category_id`。规则词表只收录从线上 `query-stats.json` 与 `query-categorys.json` 里验证过的稳定材质/大类词，例如 `危料`/`乌鸡` 归翡翠、`籽料`/`青花`/`藕粉` 归玉石、`珍珠`/`水晶`/`蜜蜡`/`南红` 归彩宝；`手镯`、`挂件`、`平安扣` 等跨类目形态词不直接定类目。
+- 线上高频服务词也会做确定性兜底：`免保证金`/`免保` 设置 `is_free_guarantee=true`，`折扣`/`优惠` 设置 `has_discount=true`，`即将结拍`/`快结束` 设置 `is_early_close=true`。裸 `能出价` 不再作为热度证据，避免把免保证金请求误写入 `heat_*`。
 
 修改源码后请重新构建再同步到线上。
+
+## Prompt 拆分
+
+为降低单个属性抽取 prompt 的长度，并避免“q 允许补全”和“筛选字段必须保守”两套目标互相污染，已提供两份拆分后的提示词：
+
+- `prompts/query_extraction.txt`：只输出 `{"q":"..."}`，负责生成适合向量检索的标题化短描述。
+- `prompts/filter_attribute_extraction.txt`：不输出 `q`，只输出 `price_*`、`heat_*`、`inner_circle_*`、类目、布尔标记、否定过滤等筛选字段。
+
+现有 `prompts/attribute_extraction.txt` 仍保留为兼容旧链路的单模型版本。
 
 ## 设计原则（简述）
 

@@ -25,7 +25,7 @@ export const SearchParamsSchema = z.object({
   heat_min: z
     .number()
     .nullable()
-    .describe("仅当有围观/出价等量或明确「围观最多」类表述时填；否则 null"),
+    .describe("仅当有围观/出价人数等热度量或明确「围观最多」类表述时填；否则 null。裸「能出价」不是热度"),
   heat_max: z
     .number()
     .nullable()

@@ -5,12 +5,17 @@ import {
 import { sanitizeCategoryAgainstUserText } from "./categoryAttitude";
 import type { SearchParams } from "./searchSchema";
 
-/** 围观/出价/热度等：未在句中出现则 heat 须为 null */
+/** 围观/出价/热度等：未在句中出现明确热度约束则 heat 须为 null */
 const HEAT_HINT_RE =
-  /围观|出价|竞拍人|竞拍\s*人数|热度|围观量|围观数|出价数|出价人次|人次上限|人数上限/i;
+  /围观|竞拍人|竞拍\s*人数|热度|围观量|围观数|出价数|出价人次|人次上限|人数上限|出价最多|出价人数|拍的人少|零出价|没人出价|\d+\s*(?:人)?\s*出价|出价\s*(?:\d+|少于|低于|不超过|最多|最少)/i;
 const INNER_CIRCLE_HINT_RE =
   /圈口|戒圈|内径|港码|手寸|直径|\d{1,3}(?:\.\d+)?\s*(?:mm|毫米)\b/i;
 const STANDALONE_CIRCLE_RE = /^\s*(\d{2}(?:\.\d+)?)\s*$/;
+const FREE_GUARANTEE_RE =
+  /免\s*(?:保证金|保证|押金)|不需要\s*(?:保证金|押金)|无需\s*(?:保证金|押金)|零\s*(?:保证金|押金)|免保/u;
+const DISCOUNT_RE = /折扣|优惠|打折|有券|券后/u;
+const EARLY_CLOSE_RE =
+  /即将\s*(?:结拍|截拍)|快\s*(?:结拍|截拍|结束)|结拍时间最近|截拍|临近结拍|剩余时间.{0,8}(?:内|少于|不到)/u;
 
 function textLooksLikeStandaloneCircle(text: string): boolean {
   const m = STANDALONE_CIRCLE_RE.exec(text);
@@ -34,6 +39,12 @@ function equalsAnyPriceValue(
   priceValues: Set<number>
 ): boolean {
   return typeof candidate === "number" && priceValues.has(candidate);
+}
+
+function applyDeterministicFlags(out: SearchParams, text: string): void {
+  if (FREE_GUARANTEE_RE.test(text)) out.is_free_guarantee = true;
+  if (DISCOUNT_RE.test(text)) out.has_discount = true;
+  if (EARLY_CLOSE_RE.test(text)) out.is_early_close = true;
 }
 
 /**
@@ -89,6 +100,8 @@ export function sanitizeSearchParamsAgainstUserText(
     out.heat_min = null;
     out.heat_max = null;
   }
+
+  applyDeterministicFlags(out, text);
 
   return sanitizeCategoryAgainstUserText(out, text);
 }
